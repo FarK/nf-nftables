@@ -1,0 +1,11 @@
+{
+   <free in __exit function>
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   fun:xmalloc
+   fun:rt_symbol_table_init
+   fun:ct_label_table_init
+   fun:__libc_csu_init
+   fun:(below main)
+}
