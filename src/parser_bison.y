@@ -440,7 +440,7 @@ static void location_update(struct location *loc, struct location *rhs, int n)
 %destructor { close_scope(state); table_free($$); }	table_block_alloc
 %type <chain>			chain_block_alloc chain_block
 %destructor { close_scope(state); chain_free($$); }	chain_block_alloc
-%type <rule>			rule
+%type <rule>			rule rule_alloc
 %destructor { rule_free($$); }	rule
 
 %type <val>			set_flag_list	set_flag
@@ -1273,12 +1273,13 @@ ruleid_spec		:	chain_spec	handle_spec	position_spec
 			}
 			;
 
-comment_spec		:	/* empty */
+comment_spec		:	COMMENT		string
 			{
-				$$ = NULL;
-			}
-			|	COMMENT		string
-			{
+				if (strlen($2) > MAX_COMM_LEN) {
+					erec_queue(error(&@2, "Comment too long.  %d character maximun allowed", MAX_COMM_LEN),
+						   state->msgs);
+					YYERROR;
+				}
 				$$ = $2;
 			}
 			;
@@ -1295,18 +1296,26 @@ ruleset_spec		:	/* empty */
 			}
 			;
 
-rule			:	stmt_list	comment_spec
+rule			:	rule_alloc
+			{
+				$$->comment = NULL;
+			}
+			|	rule_alloc	comment_spec
+			{
+				$$->comment = $2;
+			}
+			;
+
+rule_alloc		:	stmt_list
 			{
 				struct stmt *i;
 
 				$$ = rule_alloc(&@$, NULL);
-				$$->comment = $2;
 				list_for_each_entry(i, $1, list)
 					$$->num_stmts++;
 				list_splice_tail($1, &$$->stmts);
 				xfree($1);
 			}
-			;
 
 stmt_list		:	stmt
 			{
@@ -2029,9 +2038,9 @@ set_elem_option		:	TIMEOUT			time_spec
 			{
 				$<expr>0->timeout = $2 * 1000;
 			}
-			|	COMMENT			string
+			|	comment_spec
 			{
-				$<expr>0->comment = $2;
+				$<expr>0->comment = $1;
 			}
 			;
 

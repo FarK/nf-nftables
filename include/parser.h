@@ -13,6 +13,12 @@
 
 #define SCOPE_NEST_MAX			3
 
+/*
+ * This maximum is set to 32 bytes in order to keep the coherence with others
+ * string length in nft objects
+ */
+#define MAX_COMM_LEN			32
+
 struct parser_state {
 	struct input_descriptor		*indesc;
 	struct input_descriptor		indescs[MAX_INCLUDE_DEPTH];
