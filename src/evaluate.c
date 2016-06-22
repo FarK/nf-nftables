@@ -946,7 +946,7 @@ static int expr_evaluate_concat(struct eval_ctx *ctx, struct expr **expr)
 {
 	const struct datatype *dtype = ctx->ectx.dtype, *tmp;
 	uint32_t type = dtype ? dtype->type : 0, ntype = 0;
-	int off = dtype ? dtype->subtypes : 0;
+	int off = dtype ? dtype->nsubtypes : 0;
 	unsigned int flags = EXPR_F_CONSTANT | EXPR_F_SINGLETON;
 	struct expr *i, *next;
 

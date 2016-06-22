@@ -1526,7 +1526,7 @@ static void expr_postprocess(struct rule_pp_ctx *ctx, struct expr **exprp)
 		break;
 	case EXPR_CONCAT: {
 		unsigned int type = expr->dtype->type, ntype = 0;
-		int off = expr->dtype->subtypes;
+		int off = expr->dtype->nsubtypes;
 		const struct datatype *dtype;
 
 		list_for_each_entry(i, &expr->expressions, list) {

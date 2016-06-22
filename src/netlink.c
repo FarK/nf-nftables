@@ -1407,7 +1407,7 @@ static struct expr *netlink_parse_concat_elem(const struct datatype *dtype,
 {
 	const struct datatype *subtype;
 	struct expr *concat, *expr;
-	int off = dtype->subtypes;
+	int off = dtype->nsubtypes;
 
 	concat = concat_expr_alloc(&data->location);
 	while (off > 0) {
@@ -1479,7 +1479,7 @@ static int netlink_delinearize_setelem(struct nftnl_set_elem *nlse,
 	key = netlink_alloc_value(&netlink_location, &nld);
 	key->dtype	= set->keytype;
 	key->byteorder	= set->keytype->byteorder;
-	if (set->keytype->subtypes)
+	if (set->keytype->nsubtypes)
 		key = netlink_parse_concat_elem(set->keytype, key);
 
 	if (!(set->flags & SET_F_INTERVAL) &&
