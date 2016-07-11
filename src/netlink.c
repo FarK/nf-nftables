@@ -290,6 +290,7 @@ static void netlink_gen_concat_data(const struct expr *expr,
 
 		memset(data, 0, sizeof(data));
 		offset = 0;
+		// TODO: ¿recorrer array?
 		list_for_each_entry(i, &expr->expressions, list) {
 			assert(i->ops->type == EXPR_VALUE);
 			mpz_export_data(data + offset, i->value, i->byteorder,
@@ -1041,6 +1042,7 @@ static const struct datatype *dtype_map_from_kernel(enum nft_data_types type)
 		return &verdict_type;
 	default:
 		if (type & ~TYPE_MASK)
+			// TODO: Concat ya no hace esto
 			return concat_type_alloc(type);
 		return datatype_lookup(type);
 	}
@@ -1067,6 +1069,7 @@ static struct set *netlink_delinearize_set(struct netlink_ctx *ctx,
 	uint32_t flags, key, data, data_len;
 
 	key = nftnl_set_get_u32(nls, NFTNL_SET_KEY_TYPE);
+	/* hay que extraerlo de los TLV */
 	keytype = dtype_map_from_kernel(key);
 	if (keytype == NULL) {
 		netlink_io_error(ctx, NULL, "Unknown data type in set key %u",
@@ -1077,6 +1080,7 @@ static struct set *netlink_delinearize_set(struct netlink_ctx *ctx,
 	flags = nftnl_set_get_u32(nls, NFTNL_SET_FLAGS);
 	if (flags & NFT_SET_MAP) {
 		data = nftnl_set_get_u32(nls, NFTNL_SET_DATA_TYPE);
+		/* hay que extraerlo de los TLV */
 		datatype = dtype_map_from_kernel(data);
 		if (datatype == NULL) {
 			netlink_io_error(ctx, NULL,
@@ -1116,6 +1120,20 @@ static struct set *netlink_delinearize_set(struct netlink_ctx *ctx,
 	return set;
 }
 
+static void give_me_a_cool_name(const struct datatype *dtype,
+				struct dastruct nftnl_set *nls)
+{
+	struct nl_dtype types[CONCAT_MAX_ST];
+	struct expr *i, *next;
+
+	for (unsigned i = 0; i < dtype->nsubtypes; i++) {
+		types.type = dtype->subtypes[i].type;
+		types.size = dtype->subtypes[i].size;
+	}
+
+	nftnl_set_set_data(nls, NFTNL_SET_USERDATA, types, sizeof(types));
+}
+
 static int netlink_add_set_compat(struct netlink_ctx *ctx,
 				  const struct handle *h, struct set *set)
 {
@@ -1126,9 +1144,18 @@ static int netlink_add_set_compat(struct netlink_ctx *ctx,
 	nftnl_set_set_u32(nls, NFTNL_SET_FLAGS, set->flags);
 	nftnl_set_set_u32(nls, NFTNL_SET_KEY_TYPE,
 			  dtype_map_to_kernel(set->keytype));
+	give_me_a_cool_name(set->keytype, nls);
 	nftnl_set_set_u32(nls, NFTNL_SET_KEY_LEN,
 			  div_round_up(set->keylen, BITS_PER_BYTE));
 	if (set->flags & NFT_SET_MAP) {
+		/* TODO: ¿NFTNL_SET_DATA_TYPE también puede ser concat?
+		 * Sí => follón :(
+		 *	- almacenar varios arrays de tipos, uno para KEY_TYPE y
+		 *	  otro para DATA_TYPE??
+		 *	- ¿hay mapas anónimos? a lo mejor no, a lo mejor los
+		 *	  mapas con nombre almacenan la expresión en el núcleo y
+		 *	  se puede extraer el concat de ahí
+		 */
 		nftnl_set_set_u32(nls, NFTNL_SET_DATA_TYPE,
 				  dtype_map_to_kernel(set->datatype));
 		nftnl_set_set_u32(nls, NFTNL_SET_DATA_LEN,
@@ -1405,13 +1432,12 @@ static int netlink_del_setelems_compat(struct netlink_ctx *ctx,
 static struct expr *netlink_parse_concat_elem(const struct datatype *dtype,
 					      struct expr *data)
 {
-	const struct datatype *subtype;
 	struct expr *concat, *expr;
-	int off = dtype->nsubtypes;
 
 	concat = concat_expr_alloc(&data->location);
-	while (off > 0) {
-		subtype = concat_subtype_lookup(dtype->type, --off);
+	// for_each_entry(subtype, &dtype->subtypes, subtypes) {
+	for (unsigned i = 0; i < dtype->nsubtypes; i++) {
+		const struct datatype *subtype = dtype->subtypes[i];
 
 		expr		= constant_expr_splice(data, subtype->size);
 		expr->dtype     = subtype;

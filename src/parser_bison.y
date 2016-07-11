@@ -416,8 +416,7 @@ static void location_update(struct location *loc, struct location *rhs, int n)
 
 %type <val>			time_spec
 
-%type <val>			type_identifier_list
-%type <datatype>		data_type
+%type <datatype>		data_type type_identifier_list
 
 %type <cmd>			line
 %destructor { cmd_free($$); }	line
@@ -1096,10 +1095,7 @@ set_policy_spec		:	PERFORMANCE	{ $$ = NFT_SET_POL_PERFORMANCE; }
 
 data_type		:	type_identifier_list
 			{
-				if ($1 & ~TYPE_MASK)
-					$$ = concat_type_alloc($1);
-				else
-					$$ = datatype_lookup($1);
+				$$ = $1;
 			}
 			;
 
@@ -1111,17 +1107,20 @@ type_identifier_list	:	type_identifier
 						   state->msgs);
 					YYERROR;
 				}
-				$$ = dtype->type;
+				$$ = dtype;
 			}
 			|	type_identifier_list	DOT	type_identifier
 			{
+				if (!$$)
+					$$ = concat_type_alloc();
+
 				const struct datatype *dtype = datatype_lookup_byname($3);
 				if (dtype == NULL) {
 					erec_queue(error(&@3, "unknown datatype %s", $3),
 						   state->msgs);
 					YYERROR;
 				}
-				$$ = concat_subtype_add($$, dtype->type);
+				concat_subtype_add($$, dtype);
 			}
 			;
 

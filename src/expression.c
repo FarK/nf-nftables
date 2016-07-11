@@ -691,6 +691,7 @@ void compound_expr_remove(struct expr *compound, struct expr *expr)
 
 static void concat_expr_destroy(struct expr *expr)
 {
+	// TODO
 	concat_type_destroy(expr->dtype);
 	compound_expr_destroy(expr);
 }

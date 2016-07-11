@@ -88,6 +88,8 @@ enum datatypes {
 #define TYPE_BITS		6
 #define TYPE_MASK		((1 << TYPE_BITS) - 1)
 
+#define CONCAT_MAX_ST		10
+
 /**
  * enum byteorder
  *
@@ -122,6 +124,7 @@ enum datatype_flags {
  * @flags:	flags
  * @size:	type size (fixed sized non-basetypes only)
  * @nsubtypes:	number of subtypes (concat type)
+ * @subtypes:	list of subtypes (concat type)
  * @name:	type name
  * @desc:	type description
  * @basetype:	basetype for subtypes, determines type compatibilty
@@ -136,6 +139,8 @@ struct datatype {
 	unsigned int			flags;
 	unsigned int			size;
 	unsigned int			nsubtypes;
+	// struct list_head		subtypes;
+	const struct datatype		*subtypes[CONCAT_MAX_ST]; // Dyn mem??
 	const char			*name;
 	const char			*desc;
 	const struct datatype		*basetype;
@@ -145,6 +150,11 @@ struct datatype {
 						  struct expr **res);
 	const struct symbol_table	*sym_tbl;
 };
+
+struct nl_dtype {
+	uint8_t type;
+	uint8_t size;
+}
 
 extern void datatype_register(const struct datatype *dtype);
 extern const struct datatype *datatype_lookup(enum datatypes type);
@@ -216,24 +226,19 @@ extern const struct datatype icmpv6_code_type;
 extern const struct datatype icmpx_code_type;
 extern const struct datatype time_type;
 
-extern const struct datatype *concat_type_alloc(uint32_t type);
+struct datatype *concat_type_alloc(void);
 extern void concat_type_destroy(const struct datatype *dtype);
 
-static inline uint32_t concat_subtype_add(uint32_t type, uint32_t subtype)
-{
-	return type << TYPE_BITS | subtype;
-}
+void concat_subtype_add(struct datatype *concat, const struct datatype *subtype);
 
-static inline uint32_t concat_subtype_id(uint32_t type, unsigned int n)
-{
-	return (type >> TYPE_BITS * n) & TYPE_MASK;
-}
-
-static inline const struct datatype *
-concat_subtype_lookup(uint32_t type, unsigned int n)
-{
-	return datatype_lookup(concat_subtype_id(type, n));
-}
+const struct datatype *concat_subtype_lookup(const struct datatype *dtype,
+					     unsigned int n);
+/*
+ * const struct datatype *concat_subtype_lookup(uint32_t type, unsigned int n)
+ * {
+ *         return datatype_lookup(concat_subtype_id(type, n));
+ * }
+ */
 
 extern void time_print(uint64_t seconds);
 extern struct error_record *time_parse(const struct location *loc,

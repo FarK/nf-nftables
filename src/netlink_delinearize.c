@@ -1529,8 +1529,11 @@ static void expr_postprocess(struct rule_pp_ctx *ctx, struct expr **exprp)
 		int off = expr->dtype->nsubtypes;
 		const struct datatype *dtype;
 
+		// TODO:
+		//	¿buscar TLVs en el set de ctx?
+		//  ó	¿usar datatype de LHS que deberé inicializar en otro lado?
 		list_for_each_entry(i, &expr->expressions, list) {
-			if (type) {
+			if (type != TYPE_INVALID) {
 				dtype = concat_subtype_lookup(type, --off);
 				expr_set_type(i, dtype, dtype->byteorder);
 			}

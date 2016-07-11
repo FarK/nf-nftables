@@ -944,47 +944,54 @@ static int list_member_evaluate(struct eval_ctx *ctx, struct expr **expr)
 
 static int expr_evaluate_concat(struct eval_ctx *ctx, struct expr **expr)
 {
-	const struct datatype *dtype = ctx->ectx.dtype, *tmp;
-	uint32_t type = dtype ? dtype->type : 0, ntype = 0;
-	int off = dtype ? dtype->nsubtypes : 0;
 	unsigned int flags = EXPR_F_CONSTANT | EXPR_F_SINGLETON;
+	struct datatype *type;
+	const struct datatype *subtype;
 	struct expr *i, *next;
 
+	type = concat_type_alloc();
+
+	// Evaluate sub-expressions and build datatype
 	list_for_each_entry_safe(i, next, &(*expr)->expressions, list) {
-		if (expr_is_constant(*expr) && dtype && off == 0)
+		if (expr_is_constant(*expr))
 			return expr_binary_error(ctx->msgs, i, *expr,
 						 "unexpected concat component, "
 						 "expecting %s",
-						 dtype->desc);
+						 ctx->ectx.dtype->desc);
 
-		if (dtype == NULL && i->dtype->size == 0)
-			return expr_binary_error(ctx->msgs, i, *expr,
-						 "can not use variable sized "
-						 "data types (%s) in concat "
-						 "expressions",
-						 i->dtype->name);
+		// Get sub-expression datatype
+		if (!ctx->ectx.dtype) {	// Left expression
+			subtype = i->dtype;
+		} else {		// Right expression
+			subtype = ctx->ectx.dtype;
 
-		tmp = concat_subtype_lookup(type, --off);
-		expr_set_context(&ctx->ectx, tmp, tmp->size);
+			// TODO: Error ??
+			if (expr_is_constant(*expr))
+				return expr_binary_error(ctx->msgs, i, *expr,
+					"unexpected concat component, "
+					"expecting %s",
+					subtype->desc);
 
+		}
+
+		// Evaluate sub-expression
+		expr_set_context(&ctx->ectx, subtype, subtype->size);
 		if (list_member_evaluate(ctx, &i) < 0)
 			return -1;
 		flags &= i->flags;
 
-		ntype = concat_subtype_add(ntype, i->dtype->type);
+		// Add this subtype to concat datatype
+		// TODO: En la implementación con listas no se puede al ser cte
+		concat_subtype_add(type, subtype);
 	}
 
 	(*expr)->flags |= flags;
-	(*expr)->dtype = concat_type_alloc(ntype);
+	(*expr)->dtype = type;
 	(*expr)->len   = (*expr)->dtype->size;
 
-	if (off > 0)
-		return expr_error(ctx->msgs, *expr,
-				  "datatype mismatch, expected %s, "
-				  "expression has type %s",
-				  dtype->desc, (*expr)->dtype->desc);
-
 	expr_set_context(&ctx->ectx, (*expr)->dtype, (*expr)->len);
+
+	// TODO: datatype mismatch error??? No se comprueba ya en expr_relational??
 
 	return 0;
 }

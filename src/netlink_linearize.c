@@ -73,6 +73,7 @@ static void __release_register(struct netlink_linearize_ctx *ctx,
 static enum nft_registers get_register(struct netlink_linearize_ctx *ctx,
 				       const struct expr *expr)
 {
+	// TODO: expr->len tine bien la longitud?
 	if (expr && expr->ops->type == EXPR_CONCAT)
 		return __get_register(ctx, expr->len);
 	else
@@ -82,6 +83,7 @@ static enum nft_registers get_register(struct netlink_linearize_ctx *ctx,
 static void release_register(struct netlink_linearize_ctx *ctx,
 			     const struct expr *expr)
 {
+	// TODO: expr->len tine bien la longitud?
 	if (expr && expr->ops->type == EXPR_CONCAT)
 		__release_register(ctx, expr->len);
 	else
@@ -92,12 +94,14 @@ static void netlink_gen_expr(struct netlink_linearize_ctx *ctx,
 			     const struct expr *expr,
 			     enum nft_registers dreg);
 
+// TODO: ¿construir TLVs aquí? -> NO xD, en set
 static void netlink_gen_concat(struct netlink_linearize_ctx *ctx,
 			       const struct expr *expr,
 			       enum nft_registers dreg)
 {
 	const struct expr *i;
 
+	// TODO: ¿recorrer array?
 	list_for_each_entry(i, &expr->expressions, list) {
 		netlink_gen_expr(ctx, i, dreg);
 		dreg += netlink_register_space(i->len);

@@ -6,7 +6,7 @@ AM_CPPFLAGS = -I$(top_srcdir)/include
 AM_CPPFLAGS += -DDEFAULT_INCLUDE_PATH="\"${sysconfdir}\"" \
 		${LIBMNL_CFLAGS} ${LIBNFTNL_CFLAGS}
 if BUILD_DEBUG
-AM_CPPFLAGS += -g -DDEBUG
+AM_CPPFLAGS += -ggdb -Og -DDEBUG
 endif
 
 AM_CFLAGS = -Wall								\

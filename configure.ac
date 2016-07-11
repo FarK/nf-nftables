@@ -34,6 +34,7 @@ AC_ARG_ENABLE([pdf-doc],
 	      AS_IF([test "x$enable_pdf_doc" = "xno"], [enable_pdf_doc=no],
 	      [enable_pdf_doc=yes]), [enable_pdf_doc=no])
 AM_CONDITIONAL([BUILD_PDF], [test "x$enable_pdf_doc" == "xyes" ])
+CFLAGS=""
 
 # Checks for programs.
 AC_PROG_CC

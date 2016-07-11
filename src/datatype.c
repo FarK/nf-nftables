@@ -933,41 +933,66 @@ static struct datatype *dtype_alloc(void)
 	return dtype;
 }
 
-const struct datatype *concat_type_alloc(uint32_t type)
+struct datatype *concat_type_alloc(void)
 {
-	const struct datatype *i;
-	struct datatype *dtype;
-	char desc[256] = "concatenation of (";
-	char name[256] = "";
-	unsigned int size = 0, nsubtypes = 0, n;
+	struct datatype *dtype = dtype_alloc();
 
-	n = div_round_up(fls(type), TYPE_BITS);
-	while (n > 0 && concat_subtype_id(type, --n)) {
-		i = concat_subtype_lookup(type, n);
-		if (i == NULL)
-			return NULL;
-
-		if (nsubtypes != 0) {
-			strncat(desc, ", ", sizeof(desc) - strlen(desc) - 1);
-			strncat(name, " . ", sizeof(name) - strlen(name) - 1);
-		}
-		strncat(desc, i->desc, sizeof(desc) - strlen(desc) - 1);
-		strncat(name, i->name, sizeof(name) - strlen(name) - 1);
-
-		size += netlink_padded_len(i->size);
-		nsubtypes++;
-	}
-	strncat(desc, ")", sizeof(desc) - strlen(desc) - 1);
-
-	dtype		 = dtype_alloc();
-	dtype->type	 = type;
-	dtype->size	 = size;
-	dtype->nsubtypes = nsubtypes;
-	dtype->name	 = xstrdup(name);
-	dtype->desc	 = xstrdup(desc);
+	dtype->type	 = TYPE_INVALID;
+	dtype->size	 = 0;
+	dtype->nsubtypes = 0;
+	dtype->name	 = xstrdup("");
+	dtype->desc	 = xstrdup("concatenation of ()");
 	dtype->parse	 = concat_type_parse;
 
 	return dtype;
+}
+
+static char *concat_add_substr(const char *type, const char *delim,
+			       const char *subt, const char *final)
+{
+	int len;
+	char *res;
+
+	len = strlen(type) + strlen(delim) + strlen(subt) + strlen(final) + 1;
+	res = xmalloc(len);
+
+	strcpy(res, type);
+	strcat(res, delim);
+	strcat(res, subt);
+	strcat(res, final);
+
+	return res;
+}
+
+void concat_subtype_add(struct datatype *concat, const struct datatype *subtype)
+{
+	char *desc, *name;
+
+	// list_add(&concat->subtypes, &subtype->subtypes);
+	concat->subtypes[concat->nsubtypes++] = subtype;
+	concat->size += subtype->size;
+	// Backwards compatibility
+	concat->type = concat->type << TYPE_BITS | subtype->type;
+
+	/* Add description and name:
+	 *	desc = "concatenation of (<sub_desc>, <sub_desc>)"
+	 *	name = "<sub_name> . <sub_name>"
+	 */
+	((char *)concat->desc)[strlen(concat->desc) - 1] = '\0'; // Delete last ')'
+	desc = concat_add_substr(concat->desc, ", ", subtype->desc, ")");
+	name = concat_add_substr(concat->name, " . ", subtype->name, "");
+
+	xfree(concat->desc);
+	xfree(concat->name);
+	concat->desc = desc;
+	concat->name = name;
+}
+
+const struct datatype *concat_subtype_lookup(const struct datatype *dtype,
+					     unsigned int n)
+{
+	// TODO: ¿de verdad hace falta?
+	return NULL
 }
 
 void concat_type_destroy(const struct datatype *dtype)
