@@ -20,6 +20,7 @@
 #include <rule.h>
 #include <utils.h>
 #include <netlink.h>
+#include <erec.h>
 
 #include <libnftnl/common.h>
 #include <libnftnl/ruleset.h>
@@ -400,6 +401,32 @@ void rule_print(const struct rule *rule)
 
 	if (handle_output > 0)
 		printf(" # handle %" PRIu64, rule->handle.handle.id);
+}
+
+static struct rule *rule_find_first(const struct rule *rule)
+{
+	struct nftnl_rule *nlr1, *nlr2;
+	struct rule *rule_idx;
+	struct table *table;
+	struct chain *chain;
+
+	table = table_lookup(&rule->handle);
+	if (!table)
+		return NULL;
+	chain = chain_lookup(table, &rule->handle);
+	if (!chain)
+		return NULL;
+
+	nlr1 = alloc_nftnl_rule(&rule->handle);
+	netlink_linearize_rule(NULL, nlr1, rule);
+
+	list_for_each_entry(rule_idx, &chain->rules, list) {
+		nlr2 = alloc_nftnl_rule(&rule_idx->handle);
+		netlink_linearize_rule(NULL, nlr2, rule_idx);
+		if (nftnl_rule_cmp(nlr1, nlr2))
+			return rule_idx;
+	}
+	return NULL;
 }
 
 struct rule *rule_lookup(const struct chain *chain, uint64_t handle)
@@ -1010,6 +1037,26 @@ static int do_delete_setelems(struct netlink_ctx *ctx, const struct handle *h,
 	return 0;
 }
 
+static int do_delete_rule(struct netlink_ctx *ctx, const struct cmd *cmd)
+{
+	struct rule *rule;
+
+	/* Delete by handle */
+	if (cmd->handle.handle.id)
+		return netlink_del_rule_batch(ctx, &cmd->handle, &cmd->location);
+
+	/* Delete by description */
+	rule = rule_find_first(cmd->rule);
+	if (!rule) {
+		struct error_record *e = erec_create(EREC_ERROR, &cmd->location,
+			"Could not delete rule to batch: Rule not found");
+		erec_queue(e, ctx->msgs);
+		return -1;
+	}
+	return netlink_del_rule_batch(ctx, &rule->handle,
+				      &rule->handle.position.location);
+}
+
 static int do_command_delete(struct netlink_ctx *ctx, struct cmd *cmd)
 {
 	switch (cmd->obj) {
@@ -1018,8 +1065,7 @@ static int do_command_delete(struct netlink_ctx *ctx, struct cmd *cmd)
 	case CMD_OBJ_CHAIN:
 		return netlink_delete_chain(ctx, &cmd->handle, &cmd->location);
 	case CMD_OBJ_RULE:
-		return netlink_del_rule_batch(ctx, &cmd->handle,
-					      &cmd->location);
+		return do_delete_rule(ctx, cmd);
 	case CMD_OBJ_SET:
 		return netlink_delete_set(ctx, &cmd->handle, &cmd->location);
 	case CMD_OBJ_SETELEM:

@@ -425,8 +425,8 @@ static void location_update(struct location *loc, struct location *rhs, int n)
 %type <cmd>			base_cmd add_cmd replace_cmd create_cmd insert_cmd delete_cmd list_cmd flush_cmd rename_cmd export_cmd monitor_cmd describe_cmd
 %destructor { cmd_free($$); }	base_cmd add_cmd replace_cmd create_cmd insert_cmd delete_cmd list_cmd flush_cmd rename_cmd export_cmd monitor_cmd describe_cmd
 
-%type <handle>			table_spec chain_spec chain_identifier ruleid_spec handle_spec position_spec rule_position ruleset_spec
-%destructor { handle_free(&$$); } table_spec chain_spec chain_identifier ruleid_spec handle_spec position_spec rule_position ruleset_spec
+%type <handle>			table_spec chain_spec chain_identifier handle_spec position_spec rule_position ruleset_spec
+%destructor { handle_free(&$$); } table_spec chain_spec chain_identifier handle_spec position_spec rule_position ruleset_spec
 %type <handle>			set_spec set_identifier
 %destructor { handle_free(&$$); } set_spec set_identifier
 %type <val>			family_spec family_spec_explicit chain_policy prio_spec
@@ -438,7 +438,7 @@ static void location_update(struct location *loc, struct location *rhs, int n)
 %destructor { close_scope(state); table_free($$); }	table_block_alloc
 %type <chain>			chain_block_alloc chain_block
 %destructor { close_scope(state); chain_free($$); }	chain_block_alloc
-%type <rule>			rule rule_alloc
+%type <rule>			rule ruleid_spec rule_alloc
 %destructor { rule_free($$); }	rule
 
 %type <val>			set_flag_list	set_flag
@@ -745,9 +745,10 @@ add_cmd			:	TABLE		table_spec
 			}
 			;
 
-replace_cmd		:	RULE		ruleid_spec	rule
+replace_cmd		:	RULE		chain_spec	handle_spec	rule
 			{
-				$$ = cmd_alloc(CMD_REPLACE, CMD_OBJ_RULE, &$2, &@$, $3);
+				handle_merge(&$2, &$3);
+				$$ = cmd_alloc(CMD_REPLACE, CMD_OBJ_RULE, &$2, &@$, $4);
 			}
 			;
 
@@ -792,7 +793,9 @@ delete_cmd		:	TABLE		table_spec
 			}
 			|	RULE		ruleid_spec
 			{
-				$$ = cmd_alloc(CMD_DELETE, CMD_OBJ_RULE, &$2, &@$, NULL);
+				struct handle handle_cpy = {0};
+				handle_merge(&handle_cpy, &$2->handle);
+				$$ = cmd_alloc(CMD_DELETE, CMD_OBJ_RULE, &handle_cpy, &@$, $2);
 			}
 			|	SET		set_spec
 			{
@@ -1278,8 +1281,15 @@ rule_position		:	chain_spec
 
 ruleid_spec		:	chain_spec handle_spec
 			{
-				$$ = $1;
-				handle_merge(&$$, &$2);
+				$$ = rule_alloc(&@$, NULL);
+				$$->handle = $1;
+				handle_merge(&$$->handle, &$2);
+			}
+			|
+				chain_spec rule
+			{
+				$$ = $2;
+				handle_merge(&$$->handle, &$1);
 			}
 			;
 

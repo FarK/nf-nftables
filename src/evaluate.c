@@ -2661,7 +2661,13 @@ static int cmd_evaluate_delete(struct eval_ctx *ctx, struct cmd *cmd)
 
 		return setelem_evaluate(ctx, &cmd->expr);
 	case CMD_OBJ_SET:
+		return 0;
 	case CMD_OBJ_RULE:
+		/* CMD_LIST force caching all ruleset */
+		ret = cache_update(CMD_LIST, ctx->msgs);
+		if (ret < 0)
+			return ret;
+		return rule_evaluate(ctx, cmd->rule);
 	case CMD_OBJ_CHAIN:
 	case CMD_OBJ_TABLE:
 		return 0;
