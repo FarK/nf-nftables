@@ -58,6 +58,11 @@ static inline void erec_queue(struct error_record *erec,
 	list_add_tail(&erec->list, queue);
 }
 
+static inline void erec_del_last(struct list_head *queue)
+{
+	list_del(queue->prev);
+}
+
 extern void erec_print(FILE *f, const struct error_record *erec);
 extern void erec_print_list(FILE *f, struct list_head *list);
 

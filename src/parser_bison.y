@@ -1277,6 +1277,14 @@ rule_position		:	chain_spec
 				$$ = $1;
 				handle_merge(&$$, &$2);
 			}
+			|	chain_spec HANDLE error
+			{
+				erec_del_last(state->msgs);
+				erec_queue(error(&@2, "Did you mean `position'?"),
+					   state->msgs);
+				$$ = $1;
+				YYERROR;
+			}
 			;
 
 ruleid_spec		:	chain_spec handle_spec
@@ -1290,6 +1298,15 @@ ruleid_spec		:	chain_spec handle_spec
 			{
 				$$ = $2;
 				handle_merge(&$$->handle, &$1);
+			}
+			|	chain_spec POSITION error
+			{
+				erec_del_last(state->msgs);
+				erec_queue(error(&@2, "Did you mean `handle' or insert a rule description?"),
+					   state->msgs);
+				$$ = rule_alloc(&@$, NULL);
+				handle_merge(&$$->handle, &$1);
+				YYERROR;
 			}
 			;
 
