@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# positive tests for rule deletion by description:
+#	$ nft delete rule <table> <chain> <rule description>
+
+RULE2DEL="ip saddr 1.1.1.1 counter"
+
+set -e
+$NFT add table t
+$NFT add chain t c
+$NFT add rule t c ip saddr 1.1.1.1
+$NFT add rule t c $RULE2DEL
+$NFT add rule t c ip saddr 1.1.1.1 accept
+$NFT add rule t c $RULE2DEL
+
+$NFT delete rule t c $RULE2DEL
+if [ $? -ne 0 ]; then
+	echo "E: unable to delete rule \"$RULE2DEL\"" >&2
+	exit 1
+fi
+
+REMAINS_RULE2DEL=$($NFT list -a ruleset | grep -c "$RULE2DEL")
+REMAINS_RULES=$(( $($NFT list -a ruleset | wc -l) - 4 ))
+
+if   [ $REMAINS_RULE2DEL -eq 2 ]; then
+	echo "E: First rule \"$RULE2DEL\" should have been deleted" >&2
+	exit 1
+elif [ $REMAINS_RULE2DEL -eq 0 ]; then
+	echo "E: Second rule \"$RULE2DEL\" should not have been deleted" >&2
+	exit 1
+fi
+
+if [ $REMAINS_RULES -ne 3 ]; then
+	echo "E: Rest of rules should not have been deleted" >&2
+	$NFT list -a ruleset
+	exit 1
+fi

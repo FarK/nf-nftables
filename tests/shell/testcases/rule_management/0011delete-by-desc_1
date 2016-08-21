@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# negative tests for rule deletion by description:
+#	$ nft delete rule <table> <chain> <rule description>
+
+set -e
+$NFT add table t
+$NFT add chain t c
+$NFT add rule t c ip saddr 1.1.1.1
+$NFT add rule t c ip saddr 1.1.1.1 accept
+
+set +e; # Next command must fail
+$NFT delete rule t c ip saddr 2.2.2.2
+RET=$?
+if [ $RET -ne 1 ]; then
+	echo "E: Try to delete a nonexistent rule should throw an error" >&2
+	exit $RET
+fi
+
+exit $RET
